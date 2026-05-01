@@ -36,7 +36,7 @@ export OPENAI_API_KEY="your-sk-api-key-here"
 To execute the agent against the provided `support_tickets.csv` inputs:
 
 ```bash
-python main.py
+python main.py  # Use 'python3 main.py' on macOS or environments without a 'python' alias
 ```
 
 The agent will load the local documentation, build the vector index, evaluate the tickets without accessing the live web for ground-truth information, and then output the final predictions adhering strictly to the schema in `../support_tickets/output.csv`.

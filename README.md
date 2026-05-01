@@ -71,7 +71,7 @@ All of your work belongs in [`code/`](./code/). The repo ships with an empty `co
 
 Conventions:
 
-- Put a **README inside `code/`** describing how to install dependencies and run your agent.
+- Put a **README inside `code/`** describing how to install dependencies and run your agent. *(Note: A complete `README.md` has been added inside the `code/` folder with setup and execution details).*
 - Read secrets **from environment variables only** (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, …). Copy `.env.example` → `.env` (already gitignored) if you keep one. **Never hardcode keys.**
 - Be **deterministic** where possible. Seed any random sampling.
 - Write responses to `support_tickets/output.csv`.
