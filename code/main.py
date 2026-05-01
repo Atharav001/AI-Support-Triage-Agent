@@ -11,8 +11,11 @@ random.seed(42)
 np.random.seed(42)
 
 def process_single(idx, row, agent):
+    issue_str = str(row.get('issue', ''))
+    subject_str = str(row.get('subject', ''))
+    company_str = row.get('company', None)
     try:
-        res = agent.process_ticket(row.get('issue', ''), row.get('subject', ''), row.get('company', None))
+        res = agent.process_ticket(issue_str, subject_str, company_str)
     except Exception as e:
         res = {
             "status": "escalated",
@@ -21,12 +24,16 @@ def process_single(idx, row, agent):
             "justification": str(e),
             "request_type": "product_issue"
         }
+    res["issue"] = issue_str
+    res["subject"] = subject_str
+    res["company"] = company_str
     return idx, res
 
 def main():
     print(f"Loading support tickets from {config.INPUT_CSV}...")
     try:
         df = pd.read_csv(config.INPUT_CSV)
+        df.columns = [str(c).lower() for c in df.columns]
     except FileNotFoundError:
         print(f"Error: Could not find {config.INPUT_CSV}")
         return
@@ -53,7 +60,7 @@ def main():
     out_df = pd.DataFrame(ordered_results)
     
     # Ensure all required columns are present
-    cols = ["status", "product_area", "response", "justification", "request_type"]
+    cols = ["issue", "subject", "company", "response", "product_area", "status", "request_type", "justification"]
     for col in cols:
         if col not in out_df.columns:
             out_df[col] = ""
