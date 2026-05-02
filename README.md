@@ -1,134 +1,101 @@
-# HackerRank Orchestrate
+# AI Support Triage Agent
 
-Starter repository for the **HackerRank Orchestrate** 24-hour hackathon (May 1–2, 2026).
-
-Build a terminal-based AI agent that triages real support tickets across three product ecosystems; **HackerRank**, **Claude**, and **Visa** — using only the support corpus shipped in this repo.
-
-Read [`problem_statement.md`](./problem_statement.md) for the full task spec, input/output schema, and allowed values, and [`evalutation_criteria.md`](./evalutation_criteria.md) for how submissions are scored.
+A robust, terminal-based Retrieval-Augmented Generation (RAG) agent built for the HackerRank Orchestrate hackathon. It intelligently triages, routes, and answers real support tickets across three distinct product ecosystems: **HackerRank**, **Claude**, and **Visa**, using exclusively a local support corpus.
 
 ---
 
-## Contents
+## 🚀 How This Works
 
-1. [Repository layout](#repository-layout)
-2. [What you need to build](#what-you-need-to-build)
-3. [Where your code goes](#where-your-code-goes)
-4. [Quickstart](#quickstart)
-5. [Chat transcript logging](#chat-transcript-logging)
-6. [Submission](#submission)
-7. [Judge interview](#judge-interview)
-8. [Evaluation criteria](#evaluation-criteria)
+The agent processes support tickets via an automated, intelligent pipeline:
+1. **Ingestion**: Reads the incoming support tickets from `support_tickets/support_tickets.csv`.
+2. **Classification & Escalation**: Uses a hybrid keyword and LLM-assisted classifier to identify the request type (`product_issue`, `feature_request`, `bug`, `invalid`) and the product area. High-risk, sensitive, or unsupported cases (e.g., fraud, legal, security) are strictly and automatically **escalated**.
+3. **Retrieval**: For safe queries, it queries a local vector database to fetch the most relevant support documentation from the `data/` corpus. 
+4. **Generation**: The retrieved context is passed to the LLM to generate a grounded, user-facing response along with a concise justification. Hallucination is actively suppressed.
+5. **Output**: Predictions are deterministically written to `support_tickets/output.csv`.
 
 ---
 
-## Repository layout
+## 🏗️ What This Is Made Of
+
+The agent is built using **Python** and leverages the following core components:
+* **FAISS**: For lightning-fast, local vector similarity search.
+* **sentence-transformers (`all-MiniLM-L6-v2`)**: To generate dense, locally-computed text embeddings of the support corpus.
+* **OpenAI API**: To perform LLM-based reasoning, classification, and grounded response synthesis.
+* **Thread Pools**: To process multiple support tickets concurrently.
+
+### System Architecture (`code/`)
+* **`main.py`**: The entry point. Parses inputs, orchestrates concurrent ticket routing, and writes outputs.
+* **`agent.py`**: The central orchestrator coordinating retrieval, classification, and prompt generation.
+* **`classifier.py`**: Handles request routing and strict escalation checks for sensitive queries.
+* **`retriever.py`**: The FAISS-backed document store containing embeddings extracted from the local docs.
+* **`config.py`**: Central configuration manager for environment variables and deterministic seeds.
+
+---
+
+## 🛠️ How It Is Made
+
+1. **Local Document Indexing**: On startup, the agent parses the static support corpus in the `data/` directory. It splits the documents into chunks and computes dense embeddings locally using `sentence-transformers`. These embeddings are indexed using `FAISS`.
+2. **Strict Grounding**: The LLM prompt is engineered to *only* rely on the context provided by the local FAISS retriever. Web calls and external knowledge bases are disabled to ensure the agent cannot hallucinate policies not found in the official corpus.
+3. **Deterministic Execution**: The system uses seeded randomization and conservative LLM temperature settings to ensure results are as deterministic and reliable as possible.
+4. **Security & Guardrails**: The classifier runs an initial sweep on the text before retrieval to catch severe issues early, preventing the AI from confidently answering queries related to fraud or legal disputes.
+
+---
+
+## 📂 Repository Layout
 
 ```
 .
 ├── AGENTS.md                       # Rules for AI coding tools + transcript logging
 ├── problem_statement.md            # Full task description and I/O schema
 ├── README.md                       # You are here
-├── code/                           # ← Build your agent here
-│   └── main.py                     #   Entry point (rename/extend as you like)
-├── data/                           # Local-only support corpus (no network needed)
-│   ├── hackerrank/                 #   HackerRank help center
-│   ├── claude/                     #   Claude Help Center export
-│   └── visa/                       #   Visa consumer + small-business support
+├── code/                           # Core agent logic and scripts
+│   ├── main.py                     # Entry point
+│   └── README.md                   # Agent setup and configuration details
+├── data/                           # Local-only support corpus
+│   ├── hackerrank/                 # HackerRank help center
+│   ├── claude/                     # Claude Help Center export
+│   └── visa/                       # Visa consumer + small-business support
 └── support_tickets/
-    ├── sample_support_tickets.csv  # Inputs + expected outputs (for development)
-    ├── support_tickets.csv         # Inputs only (run your agent on these)
-    └── output.csv                  # Write your agent's predictions here
+    ├── sample_support_tickets.csv  # Inputs + expected outputs
+    ├── support_tickets.csv         # Inputs to evaluate
+    └── output.csv                  # Agent's final predictions
 ```
 
 ---
 
-## What you need to build
+## ⚡ Quickstart
 
-A terminal-based agent that, for each row in `support_tickets/support_tickets.csv`, produces:
+1. **Clone the repository:**
+   ```bash
+   git clone git@github.com:interviewstreet/hackerrank-orchestrate-may26.git
+   cd hackerrank-orchestrate-may26
+   ```
+2. **Navigate to the code directory:**
+   ```bash
+   cd code
+   ```
+3. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. **Set your API Key:**
+   ```bash
+   export OPENAI_API_KEY="your-sk-api-key-here"
+   ```
+5. **Run the Agent:**
+   ```bash
+   python main.py  # Use 'python3 main.py' on macOS
+   ```
 
-| Column         | Allowed values                                          |
-| -------------- | ------------------------------------------------------- |
-| `status`       | `replied`, `escalated`                                  |
-| `product_area` | most relevant support category / domain area            |
-| `response`     | user-facing answer grounded in the provided corpus      |
-| `justification`| concise explanation of the routing/answering decision   |
-| `request_type` | `product_issue`, `feature_request`, `bug`, `invalid`    |
-
-Hard requirements (from `problem_statement.md`):
-
-- Must be **terminal-based**.
-- Must use **only the provided support corpus** (no live web calls for ground-truth answers).
-- Must **escalate** high-risk, sensitive, or unsupported cases instead of guessing.
-- Must avoid hallucinated policies or unsupported claims.
-
-Beyond that you are free to bring your own approach — RAG, vector DBs, tool use, structured output, agent frameworks, classical ML, or anything else.
-
----
-
-## Where your code goes
-
-All of your work belongs in [`code/`](./code/). The repo ships with an empty `code/main.py` you can grow into your full agent — add more modules (`agent.py`, `retriever.py`, `classifier.py`, etc.) next to it as needed.
-
-Conventions:
-
-- Put a **README inside `code/`** describing how to install dependencies and run your agent. *(Note: A complete `README.md` has been added inside the `code/` folder with setup and execution details).*
-- Read secrets **from environment variables only** (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, …). Copy `.env.example` → `.env` (already gitignored) if you keep one. **Never hardcode keys.**
-- Be **deterministic** where possible. Seed any random sampling.
-- Write responses to `support_tickets/output.csv`.
+*(See `code/README.md` for more execution details.)*
 
 ---
 
-## Quickstart
+## 📝 Hackathon Submission Details
 
-Clone this repository:
+This repository ships with an `AGENTS.md` file that ensures any AI coding tools (like Cursor, Claude Code, etc.) append their conversation turns to a single shared log file. This file will be submitted as the **Chat Transcript**.
 
-```bash
-git clone git@github.com:interviewstreet/hackerrank-orchestrate-may26.git
-cd hackerrank-orchestrate-may26
-```
-
-You are free to use any language or runtime. We recommend **Python**, **JavaScript**, or **TypeScript**.
-
----
-
-## Chat transcript logging
-
-This repo ships with an `AGENTS.md` that any modern AI coding tool (Cursor, Claude Code, Codex, Gemini CLI, Copilot, etc.) will read. It instructs the tool to append every conversation turn to a single shared log file:
-
-| Platform       | Path                                              |
-| -------------- | ------------------------------------------------- |
-| macOS / Linux  | `$HOME/hackerrank_orchestrate/log.txt`            |
-| Windows        | `%USERPROFILE%\hackerrank_orchestrate\log.txt`    |
-
-You don't need to do anything to enable it — just use your AI tool normally. You'll upload this `log.txt` as your chat transcript at submission time.
-
----
-
-## Submission
-
-Submit on the HackerRank Community Platform:
-<https://www.hackerrank.com/contests/hackerrank-orchestrate-may26/challenges/support-agent/submission>
-
-You will upload **three** files:
-
-1. **Code zip** — zip your `code/` directory and upload it. Exclude virtualenvs, `node_modules`, build artifacts, the `data/` corpus, and the `support_tickets/` CSVs.
-2. **Predictions CSV** — your agent's output for `support_tickets/support_tickets.csv` (i.e. the populated `output.csv`).
-3. **Chat transcript** — the `log.txt` from the path in [Chat transcript logging](#chat-transcript-logging).
-
----
-
-## Judge interview
-
-After a successful submission, your AI Judge interview will happen within a few hours after the hackathon ends. It will stay open for the next 4 hours. 
-
-The AI Judge will have access to your submission and may ask about your approach, decisions, and how you used AI while building your solution. The interview will be 30 minutes long, and keeping your camera on is mandatory.
-
-Results will be announced on May 15, 2026
-
----
-
-## Evaluation criteria
-
-Submissions are scored across four dimensions: agent design (your `code/`), the AI Judge interview, output accuracy on `support_tickets/output.csv`, and AI fluency from your chat transcript.
-
-See [`evalutation_criteria.md`](./evalutation_criteria.md) for the full rubric.
+Submissions are made on the HackerRank Community Platform via three files:
+1. **Code zip**: The zipped `code/` directory.
+2. **Predictions CSV**: The populated `support_tickets/output.csv`.
+3. **Chat transcript**: Your local `log.txt` generated by your AI agent.
